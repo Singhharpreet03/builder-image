@@ -1,4 +1,7 @@
 FROM ubuntu:22.04
+ENV TZ=Asia/Kolkata 
+
+ENV DEBIAN_FRONTEND=noninteractive 
 
 # Install core utilities & dependencies
 RUN apt-get update && apt-get install -y \
