@@ -15,9 +15,19 @@ RUN set -eux; \
 		xfsprogs \
 		xz \
 		zfs \
-        awscli \
-        curl \
+        	awscli \
+        	curl \
+		jq \
+  		unzip \
+    		openjdk-11-jdk \
 	;
+#installing trivy
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -
+#installing sonar-cli
+RUN curl -o /opt/sonar-scanner-cli.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip \
+    && unzip /opt/sonar-scanner-cli.zip -d /opt \
+    && ln -s /opt/sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner \
+    && ln -s /opt/sonar-scanner/bin/sonar-scanner /usr/local/bin/sonar-scanner
 
 # dind might be used on systems where the nf_tables kernel module isn't available. In that case,
 # we need to switch over to xtables-legacy. See https://github.com/docker-library/docker/issues/463
