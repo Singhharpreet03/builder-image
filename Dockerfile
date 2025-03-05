@@ -1,47 +1,103 @@
-FROM ubuntu:22.04
-ENV TZ=Asia/Kolkata 
+FROM docker:28-cli
+# https://github.com/moby/moby/blob/0eecd59153c03ced5f5ddd79cc98f29e4d86daec/project/PACKAGERS.md#runtime-dependencies
+# https://github.com/docker/docker-ce-packaging/blob/963aa02666035d4e268f33c63d7868d6cdd1d34c/deb/common/control#L28-L41
+RUN set -eux; \
+	apk add --no-cache \
+		btrfs-progs \
+		e2fsprogs \
+		e2fsprogs-extra \
+		git \
+		ip6tables \
+		iptables \
+		openssl \
+		pigz \
+		shadow-uidmap \
+		xfsprogs \
+		xz \
+		zfs \
+        awscli \
+        curl \
+	;
 
-ENV DEBIAN_FRONTEND=noninteractive 
+# dind might be used on systems where the nf_tables kernel module isn't available. In that case,
+# we need to switch over to xtables-legacy. See https://github.com/docker-library/docker/issues/463
+RUN set -eux; \
+	apk add --no-cache iptables-legacy; \
+# set up a symlink farm we can use PATH to switch to legacy with
+	mkdir -p /usr/local/sbin/.iptables-legacy; \
+# https://gitlab.alpinelinux.org/alpine/aports/-/blob/a7e1610a67a46fc52668528efe01cee621c2ba6c/main/iptables/APKBUILD#L77
+	for f in \
+		iptables \
+		iptables-save \
+		iptables-restore \
+		ip6tables \
+		ip6tables-save \
+		ip6tables-restore \
+	; do \
+# "iptables-save" -> "iptables-legacy-save", "ip6tables" -> "ip6tables-legacy", etc.
+# https://pkgs.alpinelinux.org/contents?branch=v3.21&name=iptables-legacy&arch=x86_64
+		b="$(command -v "${f/tables/tables-legacy}")"; \
+		"$b" --version; \
+		ln -svT "$b" "/usr/local/sbin/.iptables-legacy/$f"; \
+	done; \
+# verify it works (and gets us legacy)
+	export PATH="/usr/local/sbin/.iptables-legacy:$PATH"; \
+	iptables --version | grep legacy
 
-# Install core utilities & dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    bash \
-    jq \
-    docker.io \
-    awscli \
-    openjdk-11-jdk \
-    build-essential \
-    python3 python3-pip \
-    && apt-get clean
+# set up subuid/subgid so that "--userns-remap=default" works out-of-the-box
+RUN set -eux; \
+	addgroup -S dockremap; \
+	adduser -S -G dockremap dockremap; \
+	echo 'dockremap:165536:65536' >> /etc/subuid; \
+	echo 'dockremap:165536:65536' >> /etc/subgid
 
-# Install Trivy (direct from Aqua Security)
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -
+RUN set -eux; \
+	\
+	apkArch="$(apk --print-arch)"; \
+	case "$apkArch" in \
+		'x86_64') \
+			url='https://download.docker.com/linux/static/stable/x86_64/docker-28.0.1.tgz'; \
+			;; \
+		'armhf') \
+			url='https://download.docker.com/linux/static/stable/armel/docker-28.0.1.tgz'; \
+			;; \
+		'armv7') \
+			url='https://download.docker.com/linux/static/stable/armhf/docker-28.0.1.tgz'; \
+			;; \
+		'aarch64') \
+			url='https://download.docker.com/linux/static/stable/aarch64/docker-28.0.1.tgz'; \
+			;; \
+		*) echo >&2 "error: unsupported 'docker.tgz' architecture ($apkArch)"; exit 1 ;; \
+	esac; \
+	\
+	wget -O 'docker.tgz' "$url"; \
+	\
+	tar --extract \
+		--file docker.tgz \
+		--strip-components 1 \
+		--directory /usr/local/bin/ \
+		--no-same-owner \
+# we exclude the CLI binary because we already extracted that over in the "docker:28-cli" image that we're FROM and we don't want to duplicate those bytes again in this layer
+		--exclude 'docker/docker' \
+	; \
+	rm docker.tgz; \
+	\
+	dockerd --version; \
+	containerd --version; \
+	ctr --version; \
+	runc --version
 
-# Install Node.js & NVM
-ENV NVM_DIR=/root/.nvm
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash \
-    && . "$NVM_DIR/nvm.sh" \
-    && nvm install 18 \
-    && nvm alias default 18 \
-    && nvm use default
+# https://github.com/docker/docker/tree/master/hack/dind
+ENV DIND_COMMIT c43aa0b6aa7c88343f0951ba9a39c69aa51c54ef
 
-# Install Sonar Scanner CLI
-RUN curl -o /opt/sonar-scanner-cli.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip \
-    && apt-get install -y unzip \
-    && unzip /opt/sonar-scanner-cli.zip -d /opt \
-    && ln -s /opt/sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner \
-    && ln -s /opt/sonar-scanner/bin/sonar-scanner /usr/local/bin/sonar-scanner
+RUN set -eux; \
+	wget -O /usr/local/bin/dind "https://raw.githubusercontent.com/docker/docker/${DIND_COMMIT}/hack/dind"; \
+	chmod +x /usr/local/bin/dind
 
-# Ensure sonar-scanner is in PATH
-ENV SONAR_SCANNER_HOME=/opt/sonar-scanner
+COPY dockerd-entrypoint.sh /usr/local/bin/
 
-# Cleanup
-RUN rm -rf /var/lib/apt/lists/* /opt/sonar-scanner-cli.zip
+VOLUME /var/lib/docker
+EXPOSE 2375 2376
 
-# Set NVM in profile for future shells
-RUN echo 'export NVM_DIR="/root/.nvm"' >> /root/.bashrc \
-    && echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' >> /root/.bashrc
-
-ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT ["dockerd-entrypoint.sh"]
+CMD []
