@@ -21,6 +21,7 @@ RUN set -eux; \
                 jq \
                 unzip \
                 openjdk11 \
+                grep \
         ;
 #installing vault-cli
 
