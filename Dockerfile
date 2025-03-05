@@ -135,5 +135,5 @@ COPY dockerd-entrypoint.sh /usr/local/bin/
 VOLUME /var/lib/docker
 EXPOSE 2375 2376
 
-ENTRYPOINT ["/usr/local/bin/dockerd-entrypoint.sh"]
+ENTRYPOINT ["dockerd-entrypoint.sh"]
 CMD []
