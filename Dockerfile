@@ -42,7 +42,7 @@ RUN apk add --update --virtual .deps --no-cache gnupg && \
 
 #installing trivy
 #RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -
-curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.18.3
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.18.3
 #debug step for trivy
 #RUN curl -sfL -v https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh - || cat /dev/stderr
 #installing trivy from release
