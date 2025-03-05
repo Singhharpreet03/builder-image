@@ -46,8 +46,8 @@ RUN apk add --update --virtual .deps --no-cache gnupg && \
 #debug step for trivy
 #RUN curl -sfL -v https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh - || cat /dev/stderr
 #installing trivy from release
-ENV TRIVY_VERSION="v0.18.3"
-RUN curl -sfL https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz | tar -xzC /usr/local/bin
+ENV TRIVY_VERSION="v0.59.0"
+RUN curl -sfL https://github.com/aquasecurity/trivy/releases/download/v0.59.0/trivy_v0.59.0_Linux-64bit.tar.gz | tar -xzC /usr/local/bin
 
 #installing sonar-cli
 RUN curl -o /opt/sonar-scanner-cli.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip \
