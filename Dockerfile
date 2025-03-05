@@ -24,7 +24,7 @@ RUN set -eux; \
 #installing vault-cli
 
 ENV PRODUCT="vault" \
-    VERSION="1.18.0"
+    VERSION="1.14.0"
 
 RUN apk add --update --virtual .deps --no-cache gnupg && \
     cd /tmp && \
