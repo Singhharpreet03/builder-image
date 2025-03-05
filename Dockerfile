@@ -1,6 +1,8 @@
 FROM docker:28-cli
 # https://github.com/moby/moby/blob/0eecd59153c03ced5f5ddd79cc98f29e4d86daec/project/PACKAGERS.md#runtime-dependencies
 # https://github.com/docker/docker-ce-packaging/blob/963aa02666035d4e268f33c63d7868d6cdd1d34c/deb/common/control#L28-L41
+RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf
+
 RUN set -eux; \
         apk add --no-cache \
                 btrfs-progs \
